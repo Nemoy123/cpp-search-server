@@ -69,19 +69,6 @@ public:
         }
     }
 
-	set<string> ParseQueryFindMinus (const string& text) const {
-       set <string> minuswords;
-            for (const string& word : SplitIntoWordsNoStop(text)) {
-            
-                if (IsMinusWord(word)) { //  заполняем множество минус слова
-                    
-                   minuswords.insert(word.substr(1)); // substr (1) слово без -
-                }     
-        }
-        return minuswords;
-    }
-	
-	
 	 //В методе AddDocument переберите слова документа, кроме стоп-слов. 
      // В множество документов, соответствующих очередному слову, вставьте id текущего документа.
 	
@@ -90,22 +77,23 @@ public:
         // map<string, map<int, double>> word_to_document_freqs_
         const vector<string> words = SplitIntoWordsNoStop(document);
         double TF=0;
-        int TFk=0;
+            
         
-        
-        for (auto& word:words){
-            TFk = count(words.begin(), words.end(), word);
-            TF = static_cast <double> (TFk) / words.size();
-            word_to_document_freqs_[word].insert({document_id, TF});
+        for (const string& word : words){
+           
+          
+            TF = static_cast <double> (1) / static_cast <double> (words.size());
+          
+           word_to_document_freqs_[word][document_id] += TF;
         }
     }
 
     vector<Document> FindTopDocuments(const string& raw_query) const {
         // const set<string> minus_words = ParseQueryFindMinus (raw_query);
         
-        const set<string> minus_words_in_query = ParseQueryFindMinus (raw_query);
-        const set<string> query_words = ParseQuery(raw_query);
-        auto matched_documents = FindAllDocuments(query_words,word_to_document_freqs_);
+       // const set<string> minus_words_in_query = ParseQueryFindMinus (raw_query);
+        const Query QueryPM = ParseQuery(raw_query);
+        vector<Document> matched_documents = FindAllDocuments(QueryPM);
 
         sort(matched_documents.begin(), matched_documents.end(),
              [](const Document& lhs, const Document& rhs) {
@@ -118,17 +106,17 @@ public:
     }
 
 private:
-    // struct DocumentContent {
-    //     int id = 0;
-    //    vector<string> words;
-    //  };
-    // vector<DocumentContent> documents_;
     
-   // map <string, set<int>> documents_; // string слова поиска set int это Id документов
     map<string, map<int, double>> word_to_document_freqs_;
     
     set<string> stop_words_;
-	set<string> minus_words_in_query;
+	
+
+    struct Query {
+        set<string> plus_words;
+        set<string> minus_words;
+    };
+
 
     bool IsStopWord(const string& word) const {
         return stop_words_.count(word) > 0;
@@ -144,20 +132,32 @@ private:
         return words;
     }
 
-    set<string> ParseQuery(const string& text) const {
-        set<string> query_words;
+
+
+    Query ParseQuery(const string& text) const {
+        Query Qu;
+        
         for (const string& word : SplitIntoWordsNoStop(text)) {
             if (!IsMinusWord(word)) {
-                query_words.insert(word);
-            }    
+                Qu.plus_words.insert(word);
+            } 
+            else {
+                Qu.minus_words.insert(word.substr(1)); 
+            }   
         }
-        return query_words;
+        return Qu;
     }
     bool IsMinusWord(const string& word) const {
-         if (word[0] == '-') { return true;}
-		 else {return false;}
+          return (word[0] == '-');
+		 
 	}
-   
+    double FindIDF (const string& word) const {
+        if (word.empty()) {return 0;}
+        double x = document_count_;
+        double y = word_to_document_freqs_.at(word).size();
+    
+    return log(x/y);
+    }
     
     
      //методе FindAllDocuments сначала вычислите релевантность документов, 
@@ -167,53 +167,48 @@ private:
      //хотя бы одно минус-слово. Оставшиеся элементы map скопируйте в результирующий vector<Document>.
     
 
-    vector<Document> FindAllDocuments(const set<string>& query_words, const map<string,                                             map<int, double>>& word_to_document_freqs_) const {
+    vector<Document> FindAllDocuments(const Query& Query_) const {
          // map<string, map<int, double>> word_to_document_freqs_;
-        // set<string> minus_words_in_query; // множество минус слов
-		int idf_count_word =0;
+        		
         double IDF = 0;
-        
         double Relevance=0;
-       // double tf2old=0;
-        
+              
         vector<Document> matched_documents;
        // накопим результат в map
         map <int, double> resultIDFTF; // id документа и TF сумма по всем словам в нем
-        map <int, double> plus_document;  
-        map <int, double> idset; // множество ID и TF по конкретному слову запроса
+       
                 
-        for (const string& word:query_words) {
+        for (const string& word:Query_.plus_words) {
             // взять множество id документов по данному слову, 
             // проверив наличие слова в словаре, иначе можем схватить исключение
-            if (word_to_document_freqs_.find(word) != word_to_document_freqs_.end()) {
-                idset=word_to_document_freqs_.at(word);
+            if (word_to_document_freqs_.count(word) == 0) {
+                continue;
+            }
             
-                idf_count_word=idset.size(); // количество документов где есть слово
-                IDF = log(static_cast<double>(document_count_)/static_cast<double>(idf_count_word)); 
-                           
-                for (const auto&[id2, tf2]:idset){
-                        Relevance = resultIDFTF[id2];
-                        Relevance += IDF*tf2;
-                        resultIDFTF[id2] = Relevance;
-                    
-                   
-                }
+            IDF = FindIDF(word); 
+            for (const auto&[id, tf]:(word_to_document_freqs_.at(word))){
+                Relevance = resultIDFTF[id];
+                Relevance += IDF*tf;
+                resultIDFTF[id] = Relevance;
             }
         }
+    
         
-        for (const string& MinusWord:minus_words_in_query){
+        for (const string& MinusWord : Query_.minus_words){
+            
             //убрать исключения от использования at, если такого слова в словаре нет
-            if (word_to_document_freqs_.find(MinusWord) != word_to_document_freqs_.end()) {
-                idset = word_to_document_freqs_.at(MinusWord);
-                for (const auto& [id, relevance] : idset) {
-                    // убрать из выдачи поиска - обнулить релевантность по ИД
-                    // plus_document.insert({id, 0});
-                    resultIDFTF.erase(id);
-                }
-            }    
+            if (word_to_document_freqs_.count(MinusWord) == 0) {
+                continue;
+            }
+            for (const auto [id, _] : word_to_document_freqs_.at(MinusWord)) {
+                
+                
+               resultIDFTF.erase(id);
+            }
+               
         }
        
-        for (const auto& [id, rel] : resultIDFTF ) {
+        for (const auto [id, rel] : resultIDFTF ) {
             // добавляем релевантность данного слова в выходной вектор
              matched_documents.push_back ({id, rel});  
         }
