@@ -169,7 +169,7 @@ private:
               
         vector<Document> matched_documents;
        // накопим результат в map
-        map <int, double> resultIDFTF; // id документа и TF сумма по всем словам в нем
+        map <int, double> resultidftf; // id документа и TF сумма по всем словам в нем
        
         for (const string& word:query_.plus_words) {
             // взять множество id документов по данному слову, 
@@ -181,7 +181,7 @@ private:
             for (const auto&[id, tf]:(word_to_document_freqs_.at(word))){
               //  Relevance = resultIDFTF[id];
                // Relevance += IDF*tf;
-                resultIDFTF[id] += idf*tf;
+                resultidftf[id] += idf*tf;
             }
         }
     
@@ -192,11 +192,11 @@ private:
                 continue;
             }
             for (const auto [id, _] : word_to_document_freqs_.at(minusword)) {
-               resultIDFTF.erase(id);
+               resultidftf.erase(id);
             }
         }
        
-        for (const auto [id, rel] : resultIDFTF ) {
+        for (const auto [id, rel] : resultidftf ) {
             // добавляем релевантность данного слова в выходной вектор
              matched_documents.push_back ({id, rel});  
         }
