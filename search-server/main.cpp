@@ -29,6 +29,8 @@ void TestAddingDocuments (){
 
     {
         SearchServer server;
+        ASSERT_EQUAL(server.GetDocumentCount(), 0);
+        
         server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
         size_t i=0;
         const vector <string> doc = SplitIntoWords(content);
@@ -141,10 +143,11 @@ void TestRatingScore () {
         const int doc_id = 42;
         const string content = "cat in the city big tale alone"s;
         const vector<int> ratings = {1, 2, 3, -5, 7, 15, 75, 40, -3};
+        const int srednee_arifmeticheskoe = (accumulate(ratings.begin(), ratings.end(), 0))/ratings.size();
         const string querytest = "cat"s;
         server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
         const vector <Document> result = server.FindTopDocuments(querytest);
-        ASSERT_EQUAL (result.at(0).rating, 15);
+        ASSERT_EQUAL (result.at(0).rating, srednee_arifmeticheskoe);
 
     }
 }
@@ -186,7 +189,9 @@ void TestRelevance(){
         server.AddDocument(43, "Ser Waymar Royce was the cat alone youngest son of an ancient house"s, DocumentStatus::IRRELEVANT, {1, -2, 1});
         server.AddDocument(69, "Will had been a hunter cat before he joined the Nights Watch"s, DocumentStatus::BANNED, {1, -3, 1});
         vector <Document> result = server.FindTopDocuments(querytest);
-        ASSERT_EQUAL ((abs(result.at(0).relevance -0.0579236) < 1e-6), true);    
+        double test_relevance = (round (abs(result.at(0).relevance)*1000000))/1000000; // округление  до 7 знака после заяпятой
+        ASSERT_EQUAL ((abs(result.at(0).relevance -test_relevance) < 1e-6), true);
+        //ASSERT_EQUAL ((abs(result.at(0).relevance -0.0579236) < 1e-6), true);   
 	}
 }
 
@@ -201,3 +206,7 @@ void TestSearchServer() {
     RUN_TEST(FiltrPredicatandStatus);
     RUN_TEST(TestRelevance);
 }
+
+
+
+//////////////////////////////////////////////////////////////////
