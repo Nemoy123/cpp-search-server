@@ -80,8 +80,6 @@ enum class DocumentStatus {
 class SearchServer {
 public:
     
-    inline static constexpr int INVALID_DOCUMENT_ID = -1;
-
     template <typename StringContainer>
     explicit SearchServer(const StringContainer& stop_words)
         : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) {
@@ -101,44 +99,30 @@ public:
 
     void AddDocument(int document_id, const string& document, DocumentStatus status,
                      const vector<int>& ratings) {
-
-        for (auto [id, data]:documents_) {
-            if (document_id == id) {
-                throw invalid_argument ("Id уже есть");
-            }
+        
+        if (documents_.find(document_id) != documents_.end()) {                   
+            throw invalid_argument ("Id уже есть");
         }
 
-        if (document_id<0){
+        if (document_id < 0){
             throw invalid_argument ("Id меньше нуля");
         }
 
-         test_query (document);
+        if (!IsValidWord (document)) {throw invalid_argument ("Документ содержит недопустимые символы");}
 
         const vector<string> words = SplitIntoWordsNoStop(document);
-
 
         const double inv_word_count = 1.0 / words.size();
         for (const string& word : words) {
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
         documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
-       
+        index_documents_.push_back(document_id);
     }
 
-    void test_query (string test) const {
+    void CheckQuery (const string& test) const {
         
         if (!IsValidWord (test)) {throw invalid_argument ("Содержит недопустимые символы");}
-        else {
-            for (const string& word : SplitIntoWords(test)) {
-                if (word[0] == '-'&& word[1] == '-') {
-                  throw invalid_argument ("Содержит два минуса перед словом");
-                } 
-                if (word.size()==1 && word[0]=='-') {
-                    throw invalid_argument ("Содержит один минус без слова");
-                }
-             }
-             
-        }
     }
   
 
@@ -146,15 +130,14 @@ public:
     vector <Document>   FindTopDocuments(const string& raw_query,
                                       DocumentPredicate document_predicate) const {
         
-        test_query (raw_query);
+        CheckQuery (raw_query);
         
-        //if (!test_minus_without_word(raw_query)){return false;}
-
         const Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query, document_predicate);
+        const double eps = 1e-6;  // 10 в степени -6 - точность сравнения double переменных
         sort(matched_documents.begin(), matched_documents.end(),
-             [](const Document& lhs, const Document& rhs) {
-                 if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+             [eps](const Document& lhs, const Document& rhs) {
+                 if (abs(lhs.relevance - rhs.relevance) < eps) {
                      return lhs.rating > rhs.rating;
                  } else {
                      return lhs.relevance > rhs.relevance;
@@ -168,13 +151,11 @@ public:
     }
 
     vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status) const {
-         
             return FindTopDocuments(raw_query, [status]([[maybe_unused]] int document_id,[[maybe_unused]] DocumentStatus document_status, [[maybe_unused]] int rating) {
                 return document_status == status;});
     }
 
     vector<Document> FindTopDocuments(const string& raw_query) const {
-        
         return FindTopDocuments(raw_query, DocumentStatus::ACTUAL);
     }
 
@@ -184,7 +165,7 @@ public:
 
     tuple<vector<string>, DocumentStatus>  MatchDocument(const string& raw_query,int document_id) const {
                                                              
-        test_query (raw_query);
+        CheckQuery (raw_query);
 
         const Query query = ParseQuery(raw_query);
         vector<string> matched_words;
@@ -205,26 +186,14 @@ public:
                 break;
             }
         }
-        tuple<vector<string>, DocumentStatus> out_results = {matched_words, documents_.at(document_id).status};
-        
-        return out_results;
+        return {matched_words, documents_.at(document_id).status};
     }
+
     int GetDocumentId(int index) const {
-         
         if (index < 0 || index >= GetDocumentCount()) {
             throw out_of_range ("Всё пропало, индекс не допустим, Хозяина.");
         }
-         int i=0;
-        int id_find =0;
-        for (const auto&[id, data]: documents_) {
-            if (i == index) {
-                id_find = id;
-                
-                break;
-            }
-            ++i;
-        }
-        return id_find;
+        return index_documents_[index];
     }
         
     
@@ -238,7 +207,7 @@ private:
     const set<string> stop_words_;
     map<string, map<int, double>> word_to_document_freqs_;
     map<int, DocumentData> documents_;
-
+    vector <int> index_documents_;
     bool IsStopWord(const string& word) const {
         return stop_words_.count(word) > 0;
     }
@@ -273,6 +242,14 @@ private:
     QueryWord ParseQueryWord(string text) const {
         bool is_minus = false;
         // Word shouldn't be empty
+        if (text[0] == '-'&& text[1] == '-') {
+                  throw invalid_argument ("Запрос содержит два минуса перед словом");
+        } 
+
+        if (text.size()==1 && text[0]=='-') {
+                    throw invalid_argument ("Запрос содержит один минус без слова");
+        }
+
         if (text[0] == '-') {
             is_minus = true;
             text = text.substr(1);
@@ -288,9 +265,7 @@ private:
     Query ParseQuery(const string& text) const {
         Query query;
         for (const string& word : SplitIntoWords(text)) {
-           // if (word[0] == '-' && word[1] == '-') {
-
-            //}
+           
             const QueryWord query_word = ParseQueryWord(word);
             if (!query_word.is_stop) {
                 if (query_word.is_minus) {
@@ -303,7 +278,6 @@ private:
         return query;
     }
 
-    // Existence required
     double ComputeWordInverseDocumentFreq(const string& word) const {
         return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
     }
@@ -343,7 +317,6 @@ private:
     }
     
     static bool IsValidWord(const string& word) {               // если true элементов нет
-        // A valid word must not contain special characters
         return none_of(word.begin(), word.end(), [](char c) {
             return c >= '\0' && c < ' ';
         });
@@ -364,9 +337,7 @@ int main() {
     {SearchServer search_server("и \x12в на"s);}
     catch(const invalid_argument& e) {std::cerr << e.what() << '\n';}
     
-    
     SearchServer search_server("и в на"s);
-       
     
     search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, {7, 2, 7});
     
@@ -388,6 +359,4 @@ int main() {
        try
     {const auto documents = search_server.FindTopDocuments("пушистый -"s);}
     catch(const invalid_argument& e) {std::cerr << e.what() << '\n';}
-    
-    
 } 
