@@ -1,9 +1,32 @@
 #include "request_queue.h"
 
    
-int RequestQueue::GetNoResultRequests() const {
-        return count_;
-   }    
+void RequestQueue::DeleteOld () {
+        
+       if (!requests_.IsEmpty()) {
+              
+            while (((time_ - min_in_day_)) >=  requests_.Front().time_request) {    // 
+                
+                --count_;
+                requests_.Pop();
+            }
+        }
+}
+
+std::vector<Document> RequestQueue::AddFindRequest(const std::string& raw_query, DocumentStatus status) {
+                
+    return search_server_Queue.FindTopDocuments(raw_query, status);
+}
+
+std::vector<Document> RequestQueue::AddFindRequest(const std::string& raw_query) {
+        
+        ++time_; // прибавить время
+        RequestQueue::DeleteOld (); // удалить записи с разницей во времени time - min_in_day_
+        const auto search_results = search_server_Queue.FindTopDocuments(raw_query);
+        RequestQueue::PlusEpmty (raw_query, search_results);
+
+        return search_server_Queue.FindTopDocuments(raw_query);
+}
 
 void RequestQueue::PlusEpmty (const std::string& raw_query, const std::vector<Document>& search_results) {
        
@@ -15,28 +38,11 @@ void RequestQueue::PlusEpmty (const std::string& raw_query, const std::vector<Do
             requests_.Push(empty);
             
         } 
-        else {                                         
+        else {                                          
 
         }    
 }
 
-std::vector<Document> RequestQueue::AddFindRequest(const std::string& raw_query) {
-        
-        ++time_; // прибавить время
-        DeleteOld (); // удалить записи с разницей во времени time - min_in_day_
-        const auto search_results = search_server_Queue.FindTopDocuments(raw_query);
-        PlusEpmty (raw_query, search_results);
-
-        return search_server_Queue.FindTopDocuments(raw_query);
-    }
-
-void RequestQueue::DeleteOld () {
-      
-       if (!requests_.IsEmpty()) {
-                while (((time_ - min_in_day_)) >=                                             requests_.Front().time_request) {    
-               
-                    --count_;
-                    requests_.Pop();
-            }
-        }
+int RequestQueue::GetNoResultRequests() const {
+      return count_;
 }
