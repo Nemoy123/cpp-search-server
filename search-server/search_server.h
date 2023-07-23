@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 #include <set>
 #include <map>
 #include <algorithm>
@@ -8,7 +9,9 @@
 #include "string_processing.h"
 #include "document.h"
 #include <numeric>
+#include <iterator>
 
+//
 using std::string_literals::operator""s;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
@@ -16,9 +19,9 @@ const int MAX_RESULT_DOCUMENT_COUNT = 5;
 class SearchServer {
 public:
     template <typename StringContainer>
-    
     explicit SearchServer(const StringContainer& stop_words);
     explicit SearchServer(const std::string& stop_words_text);
+    explicit SearchServer();
     
     void AddDocument(int document_id, const std::string& document, DocumentStatus status,const std::vector<int>& ratings);
   
@@ -29,9 +32,17 @@ public:
     std::vector<Document> FindTopDocuments(const std::string& raw_query,            DocumentStatus status) const;
     std::vector<Document> FindTopDocuments(const std::string& raw_query)                           const;  
     int GetDocumentCount() const; 
-    int GetDocumentId(int index) const;
-    std::tuple<std::vector<std::string>, DocumentStatus>                          MatchDocument(const std::string& raw_query,int document_id) const;
     
+    const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
+    std::vector <int>::const_iterator begin() const; 
+    std::vector <int>::const_iterator end() const;
+    void RemoveDocument(int document_id);
+    
+    
+
+    std::tuple<std::vector<std::string>, DocumentStatus> 
+    MatchDocument(const std::string& raw_query,int document_id) const;
+    std::vector <int> TestDuplicates (int document_id) const; 
 
 private:
     struct DocumentData {
@@ -42,6 +53,8 @@ private:
     std::map<std::string, std::map<int, double>> word_to_document_freqs_;
     std::map<int, DocumentData> documents_;
     std::vector<int> document_ids_;
+    std::map<int, std::map<std::string, double>> id_doc_string_freqs; 
+    std::map <int, std::set <std::string>> id_doc_with_set_words_;
     
     bool IsStopWord(const std::string& word) const;
     static bool IsValidWord(const std::string& word);
@@ -76,7 +89,7 @@ private:
 
  template <typename StringContainer>
  SearchServer::SearchServer(const StringContainer& stop_words)
-        : stop_words_(MakeUniqueNonEmptyStrings(stop_words))  // Extract non-empty stop words
+        : stop_words_(MakeUniqueNonEmptyStrings(stop_words))  
     {
         if (!std::all_of(stop_words_.begin(), stop_words_.end(), IsValidWord)) {
             throw std::invalid_argument("Some of stop words are invalid"s);
@@ -86,12 +99,10 @@ private:
 template <typename DocumentPredicate>
 std::vector<Document> SearchServer::FindTopDocuments(const std::string&               raw_query, DocumentPredicate document_predicate) const {
         const auto query = ParseQuery(raw_query);
-
         auto matched_documents = FindAllDocuments(query, document_predicate);
-
         sort(matched_documents.begin(), matched_documents.end(),
              [](const Document& lhs, const Document& rhs) {
-                 if (abs(lhs.relevance - rhs.relevance) < std::numeric_limits<double>::epsilon()) {
+                 if (std::abs(lhs.relevance - rhs.relevance) < std::numeric_limits<double>::epsilon()) {
                      return lhs.rating > rhs.rating;
                  } else {
                      return lhs.relevance > rhs.relevance;
@@ -100,7 +111,6 @@ std::vector<Document> SearchServer::FindTopDocuments(const std::string&         
         if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
-
         return matched_documents;
 }
 
@@ -138,3 +148,4 @@ std::vector<Document> SearchServer::FindAllDocuments(const Query& query,
         }
         return matched_documents;
 }
+

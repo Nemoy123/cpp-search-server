@@ -1,6 +1,5 @@
 #pragma once
 
-
 struct Document {
     Document() = default;
 

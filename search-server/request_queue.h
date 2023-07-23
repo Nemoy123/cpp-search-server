@@ -105,33 +105,19 @@ bool deque<Type>::IsEmpty() const {
           return stack1_.IsEmpty() && stack2_.IsEmpty();
 }
 
-
-
-
-
-
 class RequestQueue {
 public:
     
-    
     template <typename DocumentPredicate>
     std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate);
-    
-   std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentStatus status);
-   
-std::vector<Document> AddFindRequest(const std::string& raw_query);
-
-void DeleteOld ();
-
-void PlusEpmty (const std::string& raw_query, const std::vector<Document>& search_results);
-
- int GetNoResultRequests() const;
-
-
+    std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentStatus status);
+    std::vector<Document> AddFindRequest(const std::string& raw_query);
+    void DeleteOld ();
+    void PlusEpmty (const std::string& raw_query, const std::vector<Document>& search_results);
+    int GetNoResultRequests() const;
    
 private:
     struct QueryResult {
-        
         int time_request;
         std::string query;  
     };
@@ -141,11 +127,9 @@ private:
     int time_=0;
     int count_=0;
     
- 
     public: 
     
     explicit RequestQueue(const SearchServer& search_server) : search_server_Queue(search_server) { }
-  
 }; 
 
 

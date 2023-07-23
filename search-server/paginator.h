@@ -38,7 +38,6 @@ class Paginator {
     auto end() const { return pages_p.end(); }
     
     void Page_Consruct (It range_begin, It range_end, size_t s) {
-             // накопитель итераторов
             It test_step;
             bool start = true;
             It begin;
@@ -65,8 +64,6 @@ class Paginator {
     }
 
 };
-
-
 
 template <typename It>
 ostream &operator <<(ostream &out, IteratorRange<It> range) {

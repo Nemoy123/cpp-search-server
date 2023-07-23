@@ -1,11 +1,13 @@
 #include "document.h"
 #include "search_server.h"
 
+
 SearchServer::SearchServer(const std::string& stop_words_text)
         : SearchServer(
-            SplitIntoWords(stop_words_text))  // Invoke delegating constructor from string container
+            SplitIntoWords(stop_words_text))  
     {
     }
+SearchServer::SearchServer() {}
 
 
  void SearchServer::AddDocument(int document_id, const std::string& document, DocumentStatus status,
@@ -18,6 +20,8 @@ SearchServer::SearchServer(const std::string& stop_words_text)
         const double inv_word_count = 1.0 / words.size();
         for (const std::string& word : words) {
             word_to_document_freqs_[word][document_id] += inv_word_count;
+            id_doc_string_freqs[document_id][word] = inv_word_count;
+            id_doc_with_set_words_[document_id].insert(word);
         }
         documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
         document_ids_.push_back(document_id);
@@ -36,10 +40,6 @@ std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_quer
 
 int SearchServer::GetDocumentCount() const {
         return documents_.size();
-}
-
-int SearchServer::GetDocumentId(int index) const {
-        return document_ids_.at(index);
 }
 
 std::tuple<std::vector<std::string>, DocumentStatus> SearchServer::MatchDocument(const std::string& raw_query,int document_id) const {
@@ -71,7 +71,6 @@ bool SearchServer::IsStopWord(const std::string& word) const {
 }
 
 bool SearchServer::IsValidWord(const std::string& word) {
-        // A valid word must not contain special characters
         return none_of(word.begin(), word.end(), [](char c) {
             return c >= '\0' && c < ' ';
         });
@@ -135,3 +134,39 @@ SearchServer::QueryWord SearchServer::ParseQueryWord(const std::string& text) co
 double SearchServer::ComputeWordInverseDocumentFreq(const std::string& word) const {
         return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
 }
+
+std::vector <int>::const_iterator SearchServer::begin() const {return this->document_ids_.cbegin();}
+std::vector <int>::const_iterator SearchServer::end() const {return this->document_ids_.cend();}
+
+const std::map<std::string, double>& SearchServer::GetWordFrequencies(int document_id) const {
+    
+    const auto it = (id_doc_string_freqs).find (document_id);
+    auto& result = (*it).second;
+        return result;
+}
+
+void SearchServer::RemoveDocument(int document_id) {
+    auto it = std::find (document_ids_.begin(), document_ids_.end(), document_id);
+    if (it != document_ids_.end()) {document_ids_.erase (it);}
+    id_doc_string_freqs.erase (document_id);
+    documents_.erase (document_id);
+    for (auto word:word_to_document_freqs_) {
+        (word.second).erase (document_id);
+    }
+    id_doc_with_set_words_.erase(document_id);
+
+}
+
+std::vector <int> SearchServer::TestDuplicates (int document_id) const {
+    auto& test_set = id_doc_with_set_words_.at (document_id);
+    std::vector <int> result={};                            
+    for (const auto& [first, second]:id_doc_with_set_words_) {
+        if (second == test_set && first != document_id) {
+            result.push_back(std::max(document_id, first));
+        }
+    }
+    return result;
+
+}
+
+
