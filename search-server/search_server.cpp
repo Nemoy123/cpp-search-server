@@ -157,16 +157,5 @@ void SearchServer::RemoveDocument(int document_id) {
 
 }
 
-std::vector <int> SearchServer::TestDuplicates (int document_id) const {
-    auto& test_set = id_doc_with_set_words_.at (document_id);
-    std::vector <int> result={};                            
-    for (const auto& [first, second]:id_doc_with_set_words_) {
-        if (second == test_set && first != document_id) {
-            result.push_back(std::max(document_id, first));
-        }
-    }
-    return result;
-
-}
 
 
