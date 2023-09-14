@@ -23,7 +23,7 @@ class IteratorRange {
 template<typename It>
 class Paginator {
     public:
-    vector <IteratorRange<It>> pages_p;
+    std::vector <IteratorRange<It>> pages_p;
     size_t page_number = 0;
     size_t size_page = 0;
         
@@ -66,7 +66,7 @@ class Paginator {
 };
 
 template <typename It>
-ostream &operator <<(ostream &out, IteratorRange<It> range) {
+std::ostream &operator <<(std::ostream &out, IteratorRange<It> range) {
         
              for (auto doc = range.begin(); doc != range.end(); ++doc) {
                 
