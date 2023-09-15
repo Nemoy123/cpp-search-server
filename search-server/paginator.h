@@ -22,43 +22,39 @@ class IteratorRange {
 
 template<typename It>
 class Paginator {
+    private:
+    std::vector <IteratorRange<It>> pages_p_;
     public:
-    std::vector <IteratorRange<It>> pages_p;
+    
     size_t page_number = 0;
     size_t size_page = 0;
         
     Paginator (It range_begin, It range_end, size_t s) {
-        Page_Consruct (range_begin, range_end, s);
+        PageConsruct (range_begin, range_end, s);
     }
     
     size_t size() const {
         return size_page;
     } 
-    auto begin() const { return pages_p.begin(); }
-    auto end() const { return pages_p.end(); }
+    auto begin() const { return pages_p_.begin(); }
+    auto end() const { return pages_p_.end(); }
     
-    void Page_Consruct (It range_begin, It range_end, size_t s) {
+    void PageConsruct (It range_begin, It range_end, size_t s) {
             It test_step;
-            bool start = true;
-            It begin;
+           // bool start = true;
+            It begin = range_begin;
             It middle;
             for (auto iter = range_begin; iter != range_end; ++iter) {
-                
-                if (start == true) {
-                    begin = iter;
-                    start = false;
-                }
-                
+                                          
                 if (iter+1 != range_end) {
                     middle = iter;}
-                else { pages_p.push_back(IteratorRange<It>(begin, range_end)); 
+                else { pages_p_.push_back(IteratorRange<It>(begin, range_end)); 
                         return;
                 }
                     
-                if (distance (range_begin, middle) == (s-1)) {
-                    
-                    pages_p.push_back(IteratorRange<It>(begin, middle+1));
-                    start = true;
+                if (distance (range_begin, middle) == (s - 1)) {
+                    pages_p_.push_back(IteratorRange<It>(begin, middle+1));
+                    begin = iter;
                 }
         }         
     }
